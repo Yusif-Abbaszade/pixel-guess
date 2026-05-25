@@ -2,6 +2,10 @@
 
 A modern, neon-themed pixel guessing game built with HTML, CSS, and JavaScript. Challenge yourself to guess images from pixelated hints!
 
+## 🔗 Live Demo
+
+**[Play the game now!](https://pixel-guess.netlify.app/)**
+
 ## 🎨 Features
 
 - **Multiple Game Modes**: Test your guessing skills across different difficulty levels
