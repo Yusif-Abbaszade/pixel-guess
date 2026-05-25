@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PixelGuess — Şəkli Tap!</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:        #070710;
+      --surface:   #0f0f1e;
+      --surface2:  #16162a;
+      --border:    rgba(255,255,255,0.07);
+      --cyan:      #00e5ff;
+      --green:     #00ff87;
+      --red:       #ff4060;
+      --yellow:    #ffd166;
+      --orange:    #ff9500;
+      --purple:    #bf5af2;
+      --text:      #e2e2f0;
+      --muted:     #52527a;
+      --glow-c:    0 0 22px rgba(0,229,255,0.35);
+      --glow-g:    0 0 22px rgba(0,255,135,0.35);
+      --mode-color: var(--cyan);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 60px;
+      background-image:
+        radial-gradient(ellipse 60% 40% at 15% 10%, rgba(0,229,255,.05) 0%, transparent 70%),
+        radial-gradient(ellipse 50% 40% at 85% 90%, rgba(0,255,135,.04) 0%, transparent 70%);
+    }
+
+    /* ── HEADER ── */
+    header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .logo {
+      font-family: 'Press Start 2P', monospace;
+      font-size: clamp(18px, 5vw, 26px);
+      color: var(--cyan);
+      text-shadow: 0 0 30px rgba(0,229,255,.5), 0 0 60px rgba(0,229,255,.2);
+      letter-spacing: 3px;
+    }
+
+    .tagline {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 10px;
+      letter-spacing: 1px;
+      font-weight: 400;
+    }
+
+    /* ── MODE SWITCHER ── */
+    .mode-switcher {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 5px;
+    }
+
+    .mode-btn {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 9px 16px;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-family: 'Syne', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .25s ease;
+      letter-spacing: .5px;
+      white-space: nowrap;
+    }
+
+    .mode-btn .mode-icon {
+      font-size: 16px;
+      line-height: 1;
+    }
+
+    .mode-btn:hover {
+      color: var(--text);
+      background: rgba(255,255,255,.05);
+    }
+
+    .mode-btn.active-pokemon {
+      background: rgba(255,209,102,.12);
+      color: var(--yellow);
+      border: 1px solid rgba(255,209,102,.25);
+    }
+
+    .mode-btn.active-brawl {
+      background: rgba(191,90,242,.12);
+      color: var(--purple);
+      border: 1px solid rgba(191,90,242,.25);
+    }
+
+    /* ── CANVAS AREA ── */
+    .game-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      width: min(360px, 100%);
+    }
+
+    /* Mode indicator strip at top of card */
+    .mode-strip {
+      width: 100%;
+      max-width: 300px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .5px;
+      transition: all .3s ease;
+    }
+
+    .mode-strip.pokemon {
+      background: rgba(255,209,102,.07);
+      border: 1px solid rgba(255,209,102,.2);
+      color: var(--yellow);
+    }
+
+    .mode-strip.brawl {
+      background: rgba(191,90,242,.07);
+      border: 1px solid rgba(191,90,242,.2);
+      color: var(--purple);
+    }
+
+    .canvas-wrap {
+      position: relative;
+      width: 100%;
+      max-width: 300px;
+      aspect-ratio: 1;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 2px solid rgba(0,229,255,.25);
+      box-shadow: var(--glow-c), inset 0 0 40px rgba(0,0,0,.6);
+      transition: border-color .4s ease;
+    }
+
+    .canvas-wrap.brawl-mode {
+      border-color: rgba(191,90,242,.35);
+      box-shadow: 0 0 22px rgba(191,90,242,0.3), inset 0 0 40px rgba(0,0,0,.6);
+    }
+
+    #game-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    .loading-cover {
+      position: absolute;
+      inset: 0;
+      background: var(--surface2);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      transition: opacity .3s;
+    }
+
+    .loading-cover.hidden { opacity: 0; pointer-events: none; }
+
+    .spin {
+      width: 34px;
+      height: 34px;
+      border: 3px solid rgba(0,229,255,.15);
+      border-top-color: var(--cyan);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+
+    .spin.brawl-spin {
+      border-color: rgba(191,90,242,.15);
+      border-top-color: var(--purple);
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── CLARITY BAR ── */
+    .clarity-row {
+      width: 100%;
+      max-width: 300px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .clarity-label {
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+      font-weight: 600;
+      letter-spacing: .5px;
+    }
+
+    .clarity-track {
+      flex: 1;
+      height: 5px;
+      background: rgba(255,255,255,.06);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .clarity-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--cyan), var(--green));
+      border-radius: 3px;
+      transition: width .6s cubic-bezier(.4,0,.2,1);
+    }
+
+    .clarity-fill.brawl-fill {
+      background: linear-gradient(90deg, var(--purple), var(--orange));
+    }
+
+    .clarity-pct {
+      font-size: 11px;
+      color: var(--cyan);
+      font-weight: 700;
+      min-width: 32px;
+      text-align: right;
+      transition: color .3s;
+    }
+
+    .clarity-pct.brawl-pct { color: var(--purple); }
+
+    /* ── GUESS TRACKER DOTS ── */
+    .guess-dots {
+      display: flex;
+      gap: 7px;
+    }
+
+    .dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: var(--surface2);
+      border: 2px solid var(--border);
+      transition: all .3s ease;
+    }
+
+    .dot.wrong  { background: var(--red);    border-color: var(--red);   box-shadow: 0 0 8px rgba(255,64,96,.5); }
+    .dot.win    { background: var(--green);  border-color: var(--green); box-shadow: 0 0 8px rgba(0,255,135,.5); }
+    .dot.active { border-color: var(--cyan); }
+    .dot.active.brawl-dot { border-color: var(--purple); }
+
+    /* ── INPUT AREA ── */
+    .input-wrap {
+      width: 100%;
+      max-width: 300px;
+      position: relative;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 7px;
+    }
+
+    #guess-input {
+      flex: 1;
+      background: var(--surface2);
+      border: 2px solid var(--border);
+      border-radius: 9px;
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 11px 14px;
+      outline: none;
+      transition: border-color .2s;
+      text-transform: capitalize;
+    }
+
+    #guess-input:focus { border-color: rgba(0,229,255,.5); }
+    #guess-input:focus.brawl-input { border-color: rgba(191,90,242,.5); }
+    #guess-input::placeholder { color: var(--muted); font-weight: 400; }
+
+    #guess-input:disabled {
+      opacity: .4;
+      cursor: not-allowed;
+    }
+
+    #submit-btn {
+      background: var(--cyan);
+      color: var(--bg);
+      border: none;
+      border-radius: 9px;
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 800;
+      padding: 11px 16px;
+      cursor: pointer;
+      white-space: nowrap;
+      letter-spacing: .5px;
+      transition: opacity .2s, transform .1s, background .3s;
+    }
+
+    #submit-btn.brawl-btn { background: var(--purple); }
+
+    #submit-btn:hover:not(:disabled) { opacity: .85; }
+    #submit-btn:active:not(:disabled) { transform: scale(.96); }
+    #submit-btn:disabled { opacity: .3; cursor: not-allowed; }
+
+    /* ── AUTOCOMPLETE ── */
+    .ac-list {
+      position: absolute;
+      top: calc(100% + 3px);
+      left: 0;
+      right: 56px;
+      background: var(--surface2);
+      border: 1px solid rgba(0,229,255,.2);
+      border-radius: 0 0 9px 9px;
+      overflow: hidden;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 200;
+      display: none;
+    }
+
+    .ac-list.open { display: block; }
+    .ac-list.brawl-ac { border-color: rgba(191,90,242,.2); }
+
+    .ac-item {
+      padding: 9px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: capitalize;
+      cursor: pointer;
+      transition: background .12s;
+    }
+
+    .ac-item:hover, .ac-item.hi {
+      background: rgba(0,229,255,.1);
+      color: var(--cyan);
+    }
+
+    .ac-list.brawl-ac .ac-item:hover,
+    .ac-list.brawl-ac .ac-item.hi {
+      background: rgba(191,90,242,.1);
+      color: var(--purple);
+    }
+
+    /* ── GUESS HISTORY ── */
+    .guess-log {
+      width: min(360px, 100%);
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .guess-entry {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 9px 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      border-left: 3px solid;
+      animation: slideIn .25s ease;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-8px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    .guess-entry.wrong { border-left-color: var(--red); }
+    .guess-entry.correct { border-left-color: var(--green); }
+
+    .g-icon { font-size: 15px; line-height: 1; }
+    .g-text { font-size: 13px; font-weight: 600; text-transform: capitalize; flex: 1; }
+    .g-num  { font-size: 11px; color: var(--muted); font-weight: 600; }
+
+    /* ── RESULT PANEL ── */
+    .result-panel {
+      width: min(360px, 100%);
+      padding: 18px 16px;
+      border-radius: 12px;
+      text-align: center;
+      display: none;
+      animation: popIn .4s cubic-bezier(.34,1.56,.64,1);
+    }
+
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(.85); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+
+    .result-panel.win  { background: rgba(0,255,135,.07); border: 2px solid rgba(0,255,135,.4); }
+    .result-panel.lose { background: rgba(255,64,96,.07);  border: 2px solid rgba(255,64,96,.35); }
+
+    .result-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .result-panel.win  .result-title { color: var(--green); text-shadow: 0 0 20px rgba(0,255,135,.6); }
+    .result-panel.lose .result-title { color: var(--red);   text-shadow: 0 0 20px rgba(255,64,96,.6); }
+
+    .result-ans {
+      font-size: 14px;
+      color: var(--text);
+      font-weight: 600;
+      text-transform: capitalize;
+      margin-bottom: 14px;
+    }
+
+    .result-sub {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+
+    .btn-new {
+      background: transparent;
+      border: 2px solid var(--cyan);
+      color: var(--cyan);
+      border-radius: 8px;
+      padding: 9px 22px;
+      font-family: 'Syne', sans-serif;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      letter-spacing: .5px;
+      transition: background .2s;
+    }
+
+    .btn-new:hover { background: rgba(0,229,255,.1); }
+
+    /* ── SHAKE ── */
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%     { transform: translateX(-7px); }
+      40%     { transform: translateX(7px); }
+      60%     { transform: translateX(-4px); }
+      80%     { transform: translateX(4px); }
+    }
+
+    .shake { animation: shake .35s ease; }
+
+    /* ── SCROLLBAR ── */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 3px; }
+
+    /* ── HINT BADGE ── */
+    .hint-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,209,102,.07);
+      border: 1px solid rgba(255,209,102,.2);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 12px;
+      color: var(--yellow);
+      font-weight: 600;
+      width: min(360px, 100%);
+      display: none;
+    }
+
+    /* ── HELP BUTTON ── */
+    .help-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: transparent;
+      border: 2px solid rgba(255,255,255,.1);
+      border-radius: 8px;
+      color: var(--muted);
+      font-family: 'Syne', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 8px 14px;
+      cursor: pointer;
+      letter-spacing: .5px;
+      transition: all .2s ease;
+      width: min(360px, 100%);
+      justify-content: center;
+    }
+
+    .help-btn:hover {
+      border-color: rgba(255,255,255,.2);
+      color: var(--text);
+      background: rgba(255,255,255,.04);
+    }
+
+    /* ── HELP MODAL ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.75);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s ease;
+    }
+
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .modal-box {
+      background: var(--surface);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      width: min(460px, 100%);
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transform: scale(.92);
+      transition: transform .25s cubic-bezier(.34,1.56,.64,1);
+    }
+
+    .modal-overlay.open .modal-box {
+      transform: scale(1);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .modal-title {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: .5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .modal-title span { color: var(--muted); font-weight: 600; font-size: 11px; }
+
+    .modal-close {
+      background: rgba(255,255,255,.06);
+      border: none;
+      color: var(--muted);
+      width: 30px;
+      height: 30px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all .15s;
+    }
+
+    .modal-close:hover { background: rgba(255,255,255,.12); color: var(--text); }
+
+    .modal-search {
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .modal-search input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 9px 12px;
+      outline: none;
+      transition: border-color .2s;
+    }
+
+    .modal-search input:focus { border-color: rgba(0,229,255,.4); }
+    .modal-search input::placeholder { color: var(--muted); font-weight: 400; }
+
+    .modal-grid {
+      overflow-y: auto;
+      padding: 14px 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      align-content: flex-start;
+    }
+
+    .name-chip {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all .15s ease;
+      text-transform: capitalize;
+      white-space: nowrap;
+    }
+
+    .name-chip:hover {
+      background: rgba(0,229,255,.1);
+      border-color: rgba(0,229,255,.3);
+      color: var(--cyan);
+    }
+
+    .name-chip.brawl-chip:hover {
+      background: rgba(191,90,242,.1);
+      border-color: rgba(191,90,242,.3);
+      color: var(--purple);
+    }
+
+    .modal-empty {
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+      padding: 30px;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">PixelGuess</div>
+  <div class="tagline">Şəkli tap — 6 cəhdin var!</div>
+</header>
+
+<!-- MODE SWITCHER -->
+<div class="mode-switcher">
+  <button class="mode-btn active-pokemon" id="btn-pokemon" onclick="switchMode('pokemon')">
+    <span class="mode-icon">⚡</span>
+    Pokémon
+  </button>
+  <button class="mode-btn" id="btn-brawl" onclick="switchMode('brawl')">
+    <span class="mode-icon">🥊</span>
+    Brawl Stars
+  </button>
+</div>
+
+<div class="game-card">
+
+  <!-- MODE STRIP -->
+  <div class="mode-strip pokemon" id="mode-strip">
+    ⚡ Pokémon Rejimi
+  </div>
+
+  <!-- IMAGE -->
+  <div class="canvas-wrap" id="canvas-wrap">
+    <canvas id="game-canvas" width="400" height="400"></canvas>
+    <div class="loading-cover" id="loading-cover">
+      <div class="spin" id="spin-el"></div>
+      <span style="font-size:12px;color:var(--muted)" id="loading-text">Yüklənir...</span>
+    </div>
+  </div>
+
+  <!-- CLARITY BAR -->
+  <div class="clarity-row">
+    <span class="clarity-label">AYDINLIQ</span>
+    <div class="clarity-track"><div class="clarity-fill" id="clarity-fill"></div></div>
+    <span class="clarity-pct" id="clarity-pct">0%</span>
+  </div>
+
+  <!-- DOTS -->
+  <div class="guess-dots" id="guess-dots">
+    <div class="dot active" data-i="0"></div>
+    <div class="dot" data-i="1"></div>
+    <div class="dot" data-i="2"></div>
+    <div class="dot" data-i="3"></div>
+    <div class="dot" data-i="4"></div>
+    <div class="dot" data-i="5"></div>
+  </div>
+
+  <!-- INPUT -->
+  <div class="input-wrap">
+    <div class="input-row">
+      <input type="text" id="guess-input" placeholder="Adını yaz…" autocomplete="off" spellcheck="false">
+      <button id="submit-btn">→</button>
+    </div>
+    <div class="ac-list" id="ac-list"></div>
+  </div>
+
+</div>
+
+<!-- HINT -->
+<div class="hint-badge" id="hint-badge">💡 <span id="hint-text"></span></div>
+
+<!-- HELP BUTTON -->
+<button class="help-btn" id="help-btn" onclick="openHelp()">
+  📋 Bütün adları gör
+</button>
+
+<!-- GUESS LOG -->
+<div class="guess-log" id="guess-log"></div>
+
+<!-- RESULT -->
+<div class="result-panel" id="result-panel">
+  <div class="result-title" id="result-title"></div>
+  <div class="result-ans" id="result-ans"></div>
+  <div class="result-sub" id="result-sub"></div>
+  <button class="btn-new" onclick="newGame()">Yeni Oyun ↻</button>
+</div>
+
+<!-- HELP MODAL -->
+<div class="modal-overlay" id="help-modal" onclick="handleOverlayClick(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">
+        📋 Bütün adlar <span id="modal-count"></span>
+      </div>
+      <button class="modal-close" onclick="closeHelp()">✕</button>
+    </div>
+    <div class="modal-search">
+      <input type="text" id="modal-search-input" placeholder="Axtar…" oninput="filterChips(this.value)" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="modal-grid" id="modal-grid"></div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   OYUN PARAMETRLƏRİ
+═══════════════════════════════════════════════════════════════════ */
+const MAX_GUESSES  = 6;
+const PIXEL_STEPS  = [56, 28, 14, 7, 3, 1];
+const HINT_AFTER_WRONG = 3;
+
+/* ═══════════════════════════════════════════════════════════════════
+   VƏZIYYƏT
+═══════════════════════════════════════════════════════════════════ */
+let currentMode = 'pokemon'; // 'pokemon' | 'brawl'
+
+let G = {
+  answer:    '',
+  display:   '',
+  hint:      '',
+  img:       null,
+  guesses:   0,
+  stepIdx:   0,
+  over:      false,
+  names:     []
+};
+
+// Cache for name lists
+const cache = {
+  pokemonNames:  [],
+  brawlerNames:  [],
+  brawlerData:   []  // full brawler objects with image URLs
+};
+
+/* ── DOM refs ── */
+const canvas       = document.getElementById('game-canvas');
+const ctx          = canvas.getContext('2d');
+const loadCover    = document.getElementById('loading-cover');
+const canvasWrap   = document.getElementById('canvas-wrap');
+const clarityFill  = document.getElementById('clarity-fill');
+const clarityPct   = document.getElementById('clarity-pct');
+const dotsEl       = document.getElementById('guess-dots');
+const input        = document.getElementById('guess-input');
+const submitBtn    = document.getElementById('submit-btn');
+const acList       = document.getElementById('ac-list');
+const guessLog     = document.getElementById('guess-log');
+const resultPanel  = document.getElementById('result-panel');
+const hintBadge    = document.getElementById('hint-badge');
+const spinEl       = document.getElementById('spin-el');
+const modeStrip    = document.getElementById('mode-strip');
+const btnPokemon   = document.getElementById('btn-pokemon');
+const btnBrawl     = document.getElementById('btn-brawl');
+
+/* ═══════════════════════════════════════════════════════════════════
+   MODE SWITCHING
+═══════════════════════════════════════════════════════════════════ */
+function switchMode(mode) {
+  if (currentMode === mode) return;
+  currentMode = mode;
+  applyModeUI();
+  cache.brawlerData = []; // reset so fresh game picks correctly
+  newGame();
+}
+
+function applyModeUI() {
+  const isBrawl = currentMode === 'brawl';
+
+  // Mode switcher buttons
+  btnPokemon.className = 'mode-btn' + (isBrawl ? '' : ' active-pokemon');
+  btnBrawl.className   = 'mode-btn' + (isBrawl ? ' active-brawl' : '');
+
+  // Mode strip in card
+  modeStrip.className = `mode-strip ${isBrawl ? 'brawl' : 'pokemon'}`;
+  modeStrip.textContent = isBrawl ? '🥊 Brawl Stars Rejimi' : '⚡ Pokémon Rejimi';
+
+  // Canvas border
+  canvasWrap.classList.toggle('brawl-mode', isBrawl);
+
+  // Clarity bar color
+  clarityFill.classList.toggle('brawl-fill', isBrawl);
+  clarityPct.classList.toggle('brawl-pct', isBrawl);
+
+  // Submit button
+  submitBtn.classList.toggle('brawl-btn', isBrawl);
+
+  // Autocomplete border
+  acList.classList.toggle('brawl-ac', isBrawl);
+
+  // Spinner color
+  spinEl.classList.toggle('brawl-spin', isBrawl);
+
+  // Input focus color (via data attr + CSS workaround)
+  input.classList.toggle('brawl-input', isBrawl);
+  input.placeholder = isBrawl ? 'Brawler adını yaz…' : 'Adını yaz…';
+
+  // Active dot style
+  dotsEl.querySelectorAll('.dot.active').forEach(d => d.classList.toggle('brawl-dot', isBrawl));
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   CANVAS / PİKSELLƏŞMƏ
+═══════════════════════════════════════════════════════════════════ */
+function renderPixelated(pxSize) {
+  if (!G.img) return;
+  const W = canvas.width, H = canvas.height;
+
+  if (pxSize <= 1) {
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(G.img, 0, 0, W, H);
+    return;
+  }
+
+  const sw = Math.max(1, Math.floor(W / pxSize));
+  const sh = Math.max(1, Math.floor(H / pxSize));
+
+  const tmp = document.createElement('canvas');
+  tmp.width = sw; tmp.height = sh;
+  const tc = tmp.getContext('2d');
+  tc.imageSmoothingEnabled = true;
+  tc.drawImage(G.img, 0, 0, sw, sh);
+
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(tmp, 0, 0, W, H);
+}
+
+function setClarity(stepIdx) {
+  const pct = Math.round(stepIdx / (PIXEL_STEPS.length - 1) * 100);
+  clarityFill.style.width = pct + '%';
+  clarityPct.textContent  = pct + '%';
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   VERİ YÜKLƏMƏSİ
+═══════════════════════════════════════════════════════════════════ */
+function loadImg(url) {
+  return new Promise((ok, fail) => {
+    const i = new Image();
+    i.crossOrigin = 'anonymous';
+    i.onload  = () => ok(i);
+    i.onerror = () => fail(new Error('Şəkil yüklənmədi'));
+    i.src = url;
+  });
+}
+
+async function loadPokemon() {
+  if (cache.pokemonNames.length === 0) {
+    const r = await fetch('https://pokeapi.co/api/v2/pokemon?limit=151');
+    const d = await r.json();
+    cache.pokemonNames = d.results.map(p => p.name);
+  }
+  G.names = cache.pokemonNames;
+
+  const id  = Math.floor(Math.random() * 151) + 1;
+  const r   = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
+  const d   = await r.json();
+
+  const imgUrl =
+    d.sprites?.other?.['official-artwork']?.front_default ||
+    d.sprites?.front_default;
+
+  return {
+    answer:  d.name,
+    display: capitalize(d.name.replace(/-/g, ' ')),
+    hint:    `Tip: ${d.types.map(t => capitalize(t.type.name)).join(' / ')}`,
+    imgUrl
+  };
+}
+
+async function loadBrawler() {
+  // Fetch all brawlers once and cache
+  if (cache.brawlerData.length === 0) {
+    const r = await fetch('https://api.brawlify.com/v1/brawlers');
+    const d = await r.json();
+    cache.brawlerData  = d.list || [];
+    cache.brawlerNames = cache.brawlerData.map(b => b.name.toLowerCase());
+  }
+  G.names = cache.brawlerNames;
+
+  // Pick random brawler
+  const brawler = cache.brawlerData[Math.floor(Math.random() * cache.brawlerData.length)];
+
+  // Use imageUrl from API (Brawlify provides this)
+  const imgUrl = brawler.imageUrl || brawler.imageUrl2 || brawler.imageUrl3;
+
+  if (!imgUrl) throw new Error('Şəkil tapılmadı');
+
+  // Build hint from class / rarity
+  const rarityName = brawler.rarity?.name || '';
+  const className  = brawler.class?.name  || '';
+  let hint = '';
+  if (rarityName && className) hint = `${rarityName} • ${className}`;
+  else if (rarityName) hint = rarityName;
+  else if (className) hint = className;
+
+  return {
+    answer:  brawler.name.toLowerCase(),
+    display: brawler.name,
+    hint:    hint ? `💡 ${hint}` : '',
+    imgUrl
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   YENİ OYUN
+═══════════════════════════════════════════════════════════════════ */
+async function newGame() {
+  G.guesses = 0;
+  G.stepIdx = 0;
+  G.over    = false;
+  G.names   = currentMode === 'brawl' ? cache.brawlerNames : cache.pokemonNames;
+
+  input.value    = '';
+  input.disabled = false;
+  submitBtn.disabled = false;
+  guessLog.innerHTML = '';
+  resultPanel.style.display = 'none';
+  hintBadge.style.display   = 'none';
+  acList.classList.remove('open');
+
+  dotsEl.querySelectorAll('.dot').forEach((d, i) => {
+    d.className = 'dot' + (i === 0 ? ' active' : '');
+    if (i === 0 && currentMode === 'brawl') d.classList.add('brawl-dot');
+  });
+
+  setClarity(0);
+  loadCover.classList.remove('hidden');
+
+  try {
+    const data = currentMode === 'brawl' ? await loadBrawler() : await loadPokemon();
+    G.answer  = data.answer.toLowerCase().replace(/\s+/g, ' ').trim();
+    G.display = data.display;
+    G.hint    = data.hint;
+    G.img     = await loadImg(data.imgUrl);
+
+    renderPixelated(PIXEL_STEPS[0]);
+    loadCover.classList.add('hidden');
+    input.focus();
+  } catch (e) {
+    loadCover.innerHTML = `
+      <span style="color:var(--red);font-size:12px;text-align:center;padding:16px;line-height:1.8">
+        ⚠ ${e.message}<br><br>
+        <button class="btn-new" onclick="newGame()" style="margin-top:6px">Yenidən cəhd et</button>
+      </span>`;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   CAVAB YOXLANMASI
+═══════════════════════════════════════════════════════════════════ */
+function submitGuess() {
+  if (G.over || !G.img) return;
+
+  const raw = input.value.trim();
+  if (!raw) { input.focus(); return; }
+  const guess = raw.toLowerCase().replace(/\s+/g, ' ').trim();
+  if (!guess) return;
+
+  acList.classList.remove('open');
+  input.value = '';
+  input.focus();
+
+  const correct = guess === G.answer;
+  const dots    = dotsEl.querySelectorAll('.dot');
+
+  addLogRow(raw, correct, G.guesses + 1);
+
+  if (correct) {
+    dots[G.guesses].className = 'dot win';
+    renderPixelated(1);
+    setClarity(PIXEL_STEPS.length - 1);
+    G.over = true;
+    input.disabled = submitBtn.disabled = true;
+    hintBadge.style.display = 'none';
+    showResult(true, G.guesses + 1);
+  } else {
+    dots[G.guesses].className = 'dot wrong';
+    if (G.guesses + 1 < MAX_GUESSES) {
+      dots[G.guesses + 1].className = 'dot active' + (currentMode === 'brawl' ? ' brawl-dot' : '');
+    }
+
+    canvasWrap.classList.remove('shake');
+    void canvasWrap.offsetWidth;
+    canvasWrap.classList.add('shake');
+    setTimeout(() => canvasWrap.classList.remove('shake'), 350);
+
+    G.guesses++;
+    G.stepIdx = Math.min(G.guesses, PIXEL_STEPS.length - 1);
+
+    if (G.hint && G.guesses >= HINT_AFTER_WRONG && HINT_AFTER_WRONG > 0) {
+      document.getElementById('hint-text').textContent = G.hint;
+      hintBadge.style.display = 'inline-flex';
+    }
+
+    if (G.guesses >= MAX_GUESSES) {
+      renderPixelated(1);
+      setClarity(PIXEL_STEPS.length - 1);
+      G.over = true;
+      input.disabled = submitBtn.disabled = true;
+      showResult(false, 0);
+    } else {
+      renderPixelated(PIXEL_STEPS[G.stepIdx]);
+      setClarity(G.stepIdx);
+    }
+  }
+}
+
+function addLogRow(guess, correct, num) {
+  const row = document.createElement('div');
+  row.className = `guess-entry ${correct ? 'correct' : 'wrong'}`;
+  row.innerHTML = `
+    <span class="g-icon">${correct ? '✓' : '✗'}</span>
+    <span class="g-text">${guess}</span>
+    <span class="g-num">${num}/${MAX_GUESSES}</span>
+  `;
+  guessLog.prepend(row);
+}
+
+function showResult(win, guessNum) {
+  resultPanel.className = `result-panel ${win ? 'win' : 'lose'}`;
+  document.getElementById('result-title').textContent = win ? '🎉 Düzdür!' : '😔 Uduzdum!';
+  document.getElementById('result-ans').textContent   = G.display;
+  document.getElementById('result-sub').textContent   = win
+    ? `${guessNum} cəhddə tapdın! 🏆`
+    : `Cavab: ${G.display}`;
+  resultPanel.style.display = 'block';
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   AVTOTAMAMLAMA
+═══════════════════════════════════════════════════════════════════ */
+let acIdx = -1;
+
+input.addEventListener('input', () => {
+  acIdx = -1;
+  const val = input.value.trim().toLowerCase();
+  if (!val || G.over) { acList.classList.remove('open'); return; }
+
+  const hits = G.names
+    .filter(n => n.replace(/-/g,'').includes(val.replace(/\s/g,'')) || n.startsWith(val))
+    .slice(0, 7);
+
+  if (!hits.length) { acList.classList.remove('open'); return; }
+
+  acList.innerHTML = hits.map(n =>
+    `<div class="ac-item" data-v="${n}">${capitalize(n.replace(/-/g,' '))}</div>`
+  ).join('');
+  acList.classList.add('open');
+
+  acList.querySelectorAll('.ac-item').forEach(el => {
+    el.addEventListener('mousedown', e => {
+      e.preventDefault();
+      input.value = el.dataset.v;
+      acList.classList.remove('open');
+    });
+  });
+});
+
+input.addEventListener('keydown', e => {
+  const items = [...acList.querySelectorAll('.ac-item')];
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    acIdx = Math.min(acIdx + 1, items.length - 1);
+    items.forEach((el, i) => el.classList.toggle('hi', i === acIdx));
+    if (items[acIdx]) input.value = items[acIdx].dataset.v;
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    acIdx = Math.max(acIdx - 1, -1);
+    items.forEach((el, i) => el.classList.toggle('hi', i === acIdx));
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    acList.classList.remove('open');
+    submitGuess();
+  } else if (e.key === 'Escape') {
+    acList.classList.remove('open');
+  }
+});
+
+input.addEventListener('blur', () => {
+  setTimeout(() => acList.classList.remove('open'), 160);
+});
+
+submitBtn.addEventListener('click', submitGuess);
+
+/* ── Yardımçı ── */
+function capitalize(s) {
+  return s.replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   KÖMƏK MODALI
+═══════════════════════════════════════════════════════════════════ */
+function openHelp() {
+  const modal     = document.getElementById('help-modal');
+  const grid      = document.getElementById('modal-grid');
+  const countEl   = document.getElementById('modal-count');
+  const searchIn  = document.getElementById('modal-search-input');
+  const isBrawl   = currentMode === 'brawl';
+
+  // Reset search
+  searchIn.value = '';
+
+  // Populate chips
+  renderChips(G.names, isBrawl);
+  countEl.textContent = `(${G.names.length})`;
+
+  modal.classList.add('open');
+  setTimeout(() => searchIn.focus(), 200);
+}
+
+function closeHelp() {
+  document.getElementById('help-modal').classList.remove('open');
+}
+
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById('help-modal')) closeHelp();
+}
+
+function renderChips(names, isBrawl) {
+  const grid = document.getElementById('modal-grid');
+  if (!names.length) {
+    grid.innerHTML = `<div class="modal-empty">Hələ yüklənməyib…</div>`;
+    return;
+  }
+  grid.innerHTML = names.map(n =>
+    `<div class="name-chip${isBrawl ? ' brawl-chip' : ''}" onclick="pickFromModal('${n.replace(/'/g,"\\'")}')">
+      ${capitalize(n.replace(/-/g,' '))}
+    </div>`
+  ).join('');
+}
+
+function filterChips(val) {
+  const isBrawl = currentMode === 'brawl';
+  const q = val.trim().toLowerCase();
+  const filtered = q
+    ? G.names.filter(n => n.includes(q) || n.replace(/-/g,'').includes(q.replace(/\s/g,'')))
+    : G.names;
+  renderChips(filtered, isBrawl);
+}
+
+function pickFromModal(name) {
+  input.value = name;
+  closeHelp();
+  input.focus();
+}
+
+// Close on Escape key
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeHelp();
+});
+
+/* ── Başlat ── */
+newGame();
+</script>
+</body>
+</html>
